@@ -1,5 +1,5 @@
 # miracle-canvas
-You can add moveable、resizeable、zoomable、rotateable object(text、shape and iamge etc) on html canvas with this library.
+You can add moveable、resizeable、zoomable、rotateable object(text、shape and iamge, etc) on html canvas with this library.
 
 ![](https://cdn.jsdelivr.net/gh/pengfeiw/personal-image-cdn@1.0.0/image/1.gif)
 
