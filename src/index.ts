@@ -1,7 +1,9 @@
 import Entity from "./entity";
 import MiracleMouseControl from "./mouse";
+import * as MiracleEntity from "./entity";
+import * as MiracleGraphic from "./graphic";
 
-class Miracle {
+export class Miracle {
     private low_canvas: HTMLCanvasElement;
     private up_canvas: HTMLCanvasElement | null;
     public entities: Entity[];
@@ -115,6 +117,4 @@ class Miracle {
     }
 }
 
-export default Miracle;
-export {PolyShape, Circle, Image} from "./entity";
-export {Point, Vector, Rectangle} from "./graphic";
+export {MiracleEntity, MiracleGraphic};
