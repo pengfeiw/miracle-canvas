@@ -3,6 +3,8 @@ You can add moveable、resizeable、zoomable、rotateable object(text、shape an
 
 ![](https://cdn.jsdelivr.net/gh/pengfeiw/personal-image-cdn@1.0.0/image/1.gif)
 
+blog: [https://pengfeixc.com/blog/607c137a6d87a10eb2594fad](http://pengfeixc.com/blog/607c137a6d87a10eb2594fad)
+
 github code: [https://github.com/pengfeiw/miracle-canvas](https://github.com/pengfeiw/miracle-canvas)
 
 github demo: [https://github.com/pengfeiw/miracle-canvas-demo](https://github.com/pengfeiw/miracle-canvas-demo) 
