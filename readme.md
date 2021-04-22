@@ -3,6 +3,10 @@ You can add moveable、resizeable、zoomable、rotateable object(text、shape an
 
 ![](https://cdn.jsdelivr.net/gh/pengfeiw/personal-image-cdn@1.0.0/image/1.gif)
 
+github code: [https://github.com/pengfeiw/miracle-canvas](https://github.com/pengfeiw/miracle-canvas)
+
+github demo: [https://github.com/pengfeiw/miracle-canvas-demo](https://github.com/pengfeiw/miracle-canvas-demo) 
+
 ### install
 You can install the library with npm:
 ```bash
@@ -16,13 +20,19 @@ yarn add mriacle-canvas
 ### how to use
 First set canvas with miracle:
 ```javascript
-import Miracle from "miracle-canvas";
+import {Miracle} from "miracle-canvas";
 
 const miracle = new Miracle(canvas);
 ```
 
 Add some entity(shape、image etc):
 ```javascript
+import {MiracleEntity, MiracleGraphic, MiracleControl} from "./miracle/index";
+
+const {Circle, PolyShape, Image} = MiracleEntity;
+const {ImageControl} = MiracleControl;
+const {Point} = MiracleGraphic;
+
 // create a rectangle
 const rect = new PolyShape([
     new Point(150, 30),
@@ -67,4 +77,21 @@ miracle.xLocked = false;
 miracle.yLocked = false;
 miracle.diagLocked = false;
 miracle.rotateLocked = false;
+```
+
+Add custom control, only support `ImageControl` now.
+
+```typescript
+import {MiracleControl} from "./miracle/index";
+
+const {ImageControl} = MiracleControl;
+
+// create the button
+const btn = new ImageControl("/clear.png", {width: 30, height: 30}, ControlBase.lt, -15, -30);
+btn.mouseUpHandler = () => {
+    window.alert("you click the button.");
+};
+
+// add the button to Entity
+rect.addControl(btn);
 ```

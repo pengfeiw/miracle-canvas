@@ -2,6 +2,7 @@ import Entity from "./entity";
 import MiracleMouseControl from "./mouse";
 import * as MiracleEntity from "./entity";
 import * as MiracleGraphic from "./graphic";
+import * as MiracleControl from "./control";
 
 export class Miracle {
     private low_canvas: HTMLCanvasElement;
@@ -69,13 +70,21 @@ export class Miracle {
         }
     }
 
+    public dispose() {
+        if (this.up_canvas) {
+            const canvasContainer = this.up_canvas.parentElement;
+            if (canvasContainer) {
+                canvasContainer.removeChild(this.up_canvas);
+            }
+        }
+    }
     /**
      * 添加entity
      */
     public addEntity(...entities: Entity[]) {
         this.entities.push(...entities);
 
-        const ctx = this.up_canvas ? this.up_canvas.getContext("2d") : undefined;
+        const ctx = this.up_canvas?.getContext("2d");
         if (ctx) {
             for (let i = 0; i < entities.length; i++) {
                 this.entities[i].draw(ctx);
@@ -87,7 +96,7 @@ export class Miracle {
      * 重绘
      */
     public redraw() {
-        const ctx = this.up_canvas ? this.up_canvas.getContext("2d") : undefined;
+        const ctx = this.up_canvas?.getContext("2d");
         if (ctx) {
             ctx.clearRect(0, 0, ctx.canvas.clientWidth, ctx.canvas.clientHeight);
             for (let i = 0; i < this.entities.length; i++) {
@@ -117,4 +126,4 @@ export class Miracle {
     }
 }
 
-export {MiracleEntity, MiracleGraphic};
+export {MiracleEntity, MiracleGraphic, MiracleControl};

@@ -7,6 +7,10 @@ export enum Operator {
      */
     BoxSelect = 1,
     /**
+     * 点击自定义按钮
+     */
+    ControlClick,
+    /**
      * 旋转entity
      */
     RotateEntity,
@@ -60,7 +64,7 @@ class MiracleMouseControl {
      */
     private get visibleEntities() {
         return this.entities.filter(ent => ent.visible);
-    } 
+    }
     private mouseHoveEntity?: Entity; // 鼠标未拖拽时，当前鼠标悬浮的Entity
     private activeCollection?: EntityCollection; // 当激活的entity个数大于1时，activeCollection不是undefined
     private canvas: HTMLCanvasElement; // entity所在的画布
@@ -89,10 +93,16 @@ class MiracleMouseControl {
             ctx.clearRect(0, 0, this.canvas.clientWidth, this.canvas.clientHeight);
             ctx.setLineDash([]);
 
+            const drawControlPoint_store: boolean[] = [];
+            const drawControl_store: boolean[] = [];
+
+            // 存储属性值
+            for (let i = 0; i < this.visibleEntities.length; i++) {
+                drawControlPoint_store.push(this.visibleEntities[i].isDrawControlPoint);
+                drawControl_store.push(this.visibleEntities[i].isDrawControl);
+            }
+
             // 绘制entity
-            this.visibleEntities.forEach((ent) => {
-                ent.isDrawControlPoint = true;
-            });
             const activeEntities = this.getActiveEntities();
             if (activeEntities.length > 1) {
                 const collection = new EntityCollection(activeEntities);
@@ -100,11 +110,12 @@ class MiracleMouseControl {
                 collection.isDrawControlPoint = true;
                 activeEntities.forEach((ent) => {
                     ent.isDrawControlPoint = false;
+                    ent.isDrawControl = false;
                 })
 
                 for (let i = 0; i < this.visibleEntities.length; i++) {
                     const entity = this.visibleEntities[i];
-                    if (activeEntities.indexOf(entity) === -1) {
+                    if (!activeEntities.includes(entity)) {
                         entity.draw(ctx);
                     }
                 }
@@ -123,6 +134,12 @@ class MiracleMouseControl {
                 ctx.strokeStyle = "black";
                 ctx.beginPath();
                 ctx.strokeRect(dynaimcRect.lt.x, dynaimcRect.lt.y, dynaimcRect.rd.x - dynaimcRect.lt.x, dynaimcRect.rd.y - dynaimcRect.lt.y);
+            }
+
+            // 恢复属性值
+            for (let i = 0; i < this.visibleEntities.length; i++) {
+                this.visibleEntities[i].isDrawControlPoint = drawControlPoint_store[i];
+                this.visibleEntities[i].isDrawControl = drawControl_store[i];
             }
         }
     }
@@ -241,7 +258,7 @@ class MiracleMouseControl {
             for (let i = 0; i < activeEntities.length; i++) {
                 const boundD = activeEntities[i].bound;
                 const rotateOrigin = boundD.location;
-                const rotateControlBoundD = activeEntities[i].getControlBound_rotate_device();
+                const rotateControlBoundD = activeEntities[i].getControlPointBound_rotate_device();
                 const point1 = rotateControlBoundD.location;
                 const point11 = new Point(point1.x - rotateOrigin.x, point1.y - rotateOrigin.y);
                 const point11Polar = GraphicsAssist.cartesianToPolar(point11);
@@ -289,14 +306,14 @@ class MiracleMouseControl {
 
                 if (!entity.diagLocked) {
                     // 左上角控制点
-                    const ltCtrBoundD = entity.getControlBound_lt_device();
+                    const ltCtrBoundD = entity.getControlPointBound_lt_device();
                     if (isMouseInControlBound(ltCtrBoundD)) {
                         document.body.style.cursor = "pointer";
                         this.operator = Operator.ChangeEntitySizeLt;
                         return;
                     }
                     // 左下
-                    const lbCtrBoundD = entity.getControlBound_lb_device();
+                    const lbCtrBoundD = entity.getControlPointBound_lb_device();
                     if (isMouseInControlBound(lbCtrBoundD)) {
                         document.body.style.cursor = "pointer";
                         this.operator = Operator.ChangeEntitySizeLb;
@@ -304,7 +321,7 @@ class MiracleMouseControl {
                     }
 
                     // 右下
-                    const RbCtrBoundD = entity.getControlBound_rb_device();
+                    const RbCtrBoundD = entity.getControlPointBound_rb_device();
                     if (isMouseInControlBound(RbCtrBoundD)) {
                         document.body.style.cursor = "pointer";
                         this.operator = Operator.ChangeEntitySizeRb;
@@ -312,7 +329,7 @@ class MiracleMouseControl {
                     }
 
                     // 右上
-                    const RtCtrBoundD = entity.getControlBound_rt_device();
+                    const RtCtrBoundD = entity.getControlPointBound_rt_device();
                     if (isMouseInControlBound(RtCtrBoundD)) {
                         document.body.style.cursor = "pointer";
                         this.operator = Operator.ChangeEntitySizeRt;
@@ -322,7 +339,7 @@ class MiracleMouseControl {
 
                 if (!entity.xLocked) {
                     // 左中
-                    const lmCtrBoundD = entity.getControlBound_lm_device();
+                    const lmCtrBoundD = entity.getControlPointBound_lm_device();
                     if (isMouseInControlBound(lmCtrBoundD)) {
                         document.body.style.cursor = "pointer";
                         this.operator = Operator.ChangeEntitySizeLm;
@@ -330,7 +347,7 @@ class MiracleMouseControl {
                     }
 
                     // 右中
-                    const RmCtrBoundD = entity.getControlBound_rm_device();
+                    const RmCtrBoundD = entity.getControlPointBound_rm_device();
                     if (isMouseInControlBound(RmCtrBoundD)) {
                         document.body.style.cursor = "pointer";
                         this.operator = Operator.ChangeEntitySizeRm;
@@ -340,7 +357,7 @@ class MiracleMouseControl {
 
                 if (!entity.yLocked) {
                     // 中下
-                    const MbCtrBoundD = entity.getControlBound_bm_device();
+                    const MbCtrBoundD = entity.getControlPointBound_bm_device();
                     if (isMouseInControlBound(MbCtrBoundD)) {
                         document.body.style.cursor = "pointer";
                         this.operator = Operator.ChangeEntitySizeMb;
@@ -348,7 +365,7 @@ class MiracleMouseControl {
                     }
 
                     // 中上
-                    const MtCtrBoundD = entity.getControlBound_tm_device();
+                    const MtCtrBoundD = entity.getControlPointBound_tm_device();
                     if (isMouseInControlBound(MtCtrBoundD)) {
                         document.body.style.cursor = "pointer";
                         this.operator = Operator.ChangeEntitySizeMt;
@@ -358,11 +375,25 @@ class MiracleMouseControl {
 
                 if (!entity.rotateLocked) {
                     // 旋转点
-                    const rotateCtrBoundD = entity.getControlBound_rotate_device();
+                    const rotateCtrBoundD = entity.getControlPointBound_rotate_device();
                     if (isMouseInControlBound(rotateCtrBoundD)) {
                         document.body.style.cursor = "crosshair";
                         this.operator = Operator.RotateEntity;
                         return;
+                    }
+                }
+
+                if (entity.isDrawControlPoint) {
+                    // 点击自定义按钮
+                    for (let i = 0; i < entity.controls.length; i++) {
+                        const control = entity.controls[i];
+                        const controlBound = control.bound();
+
+                        if (isMouseInControlBound(controlBound)) {
+                            document.body.style.cursor = control.cursorStyle;
+                            this.operator = Operator.ControlClick;
+                            return;
+                        }
                     }
                 }
             }
@@ -410,7 +441,7 @@ class MiracleMouseControl {
             this.mouseDownPosition = new Point(event.offsetX, event.offsetY);
             if (this.operator === Operator.MoveEntity) {
                 if (this.getActiveEntities().length > 0) {
-                    const boundsD = this.getActiveEntities().map((ent) =>ent.bound);
+                    const boundsD = this.getActiveEntities().map((ent) => ent.bound);
 
                     const unionBoundD = Rectangle.union(boundsD);
 
@@ -428,6 +459,21 @@ class MiracleMouseControl {
                     if (this.mouseHoveEntity) {
                         this.mouseHoveEntity.isActive = true;
                     }
+                }
+            }
+            if (this.operator === Operator.ControlClick) {
+                const isMouseInControlBound = (ctrBoundD: Rectangle) => {
+                    const mousePoint = new Point(event.offsetX, event.offsetY);
+                    if (GraphicsAssist.isPointInRectangle(mousePoint, ctrBoundD)) {
+                        return true;
+                    }
+                    return false;
+                }
+                const activeEntities = this.getActiveEntities();
+                if (activeEntities.length > 0) {
+                    const ent = activeEntities[0];
+                    const ctr = ent.controls.find((control) => isMouseInControlBound(control.bound()));
+                    ctr?.mouseDownHandler(event);
                 }
             }
             if (this.operator === Operator.BoxSelect) {
@@ -498,6 +544,25 @@ class MiracleMouseControl {
                 }
             }
         }
+
+        // 自定义控件mouseup事件
+        if (this.operator === Operator.ControlClick) {
+            const isMouseInControlBound = (ctrBoundD: Rectangle) => {
+                const mousePoint = new Point(event.offsetX, event.offsetY);
+                if (GraphicsAssist.isPointInRectangle(mousePoint, ctrBoundD)) {
+                    return true;
+                }
+                return false;
+            }
+
+            const activeEntities = this.getActiveEntities();
+            if (activeEntities.length > 0) {
+                const ent = activeEntities[0];
+                const ctr = ent.controls.find((control) => isMouseInControlBound(control.bound()));
+                ctr?.mouseUpHandler(event);
+            }
+        }
+
         // 设置activeEntsCollection
         const activeEnts = this.getActiveEntities();
         if (activeEnts.length > 1) {

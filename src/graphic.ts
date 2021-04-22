@@ -5,6 +5,7 @@ export interface PolarCoord {
     angle: number; // 角度
     length: number; // 模长
 }
+
 export class Point {
     public x: number;
     public y: number;
@@ -18,6 +19,15 @@ export class Point {
      */
     public getVectorTo(point: Point) {
         return new Vector(point.x - this.x, point.y - this.y);
+    }
+
+    /**
+     * 向某个方向平移
+     * @param vector 平移向量 
+     */
+    public translate(vector: Vector) {
+        this.x += vector.x;
+        this.y += vector.y;
     }
 }
 export class Vector {
@@ -44,6 +54,18 @@ export class Vector {
     }
 
     /**
+     * 缩放该向量
+     * @param times 缩放倍数 
+     */
+    public scale(times: number) {
+        const polar = GraphicsAssist.cartesianToPolar(new Point(this.x, this.y));
+        polar.length *= times;
+        const point = GraphicsAssist.polarToCartesian(polar);
+        this.x = point.x;
+        this.y = point.y;
+    }
+
+    /**
      * 求单位向量
      */
     public normalize() {
@@ -56,8 +78,14 @@ export class Vector {
  * 矩形区域，高和宽可以为负数
  */
 export class Rectangle {
-    public location: Point; // 矩形中点
-    public angle: number; // 按照中心点的旋转角度
+    /**
+     * 矩形中心点
+     */
+    public location: Point;
+    /**
+     * 按照中心点的逆时针旋转角度
+     */
+    public angle: number;
     private _width: number; // 宽度
     private _height: number; // 高度
 
@@ -266,5 +294,20 @@ export namespace GraphicsAssist {
         const p1_rotate = polarToCartesian(p1_polar_rotate);
 
         return new Point(p1_rotate.x + origin.x, p1_rotate.y + origin.y);
+    }
+
+    /**
+     * 计算该角度（弧度）下的单位向量
+     * @param angle 角度（弧度）
+     */
+    export const getNormalVectorByAngle = (angle: number) => {
+        const polar: PolarCoord = {
+            angle: angle,
+            length: 1
+        };
+        
+        const point: Point = polarToCartesian(polar);
+
+        return new Vector(point.x, point.y);
     }
 }
