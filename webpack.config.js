@@ -4,7 +4,7 @@ module.exports = {
     entry: path.resolve(__dirname, "src/index.ts"),
     output: {
         filename: "bundle.js",
-        path: path.resolve(__dirname, "./lib"),
+        path: path.resolve(__dirname, "./src"),
         libraryTarget: "var",
         library: {
             name: "GlobalMiracle",
