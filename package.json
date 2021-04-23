@@ -9,7 +9,7 @@
     ],
     "scripts": {
         "tsc": "tsc -p tsconfig.json && tsc -p tsconfig-cjs.json",
-        "prepublishOnly": "npm run tsc && npm run build",
+        "prepublishOnly": "npm run build && npm run tsc",
         "build": "webpack --mode development"
     },
     "keywords": [
