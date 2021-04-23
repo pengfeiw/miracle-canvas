@@ -1,12 +1,15 @@
 import Entity from "./entity";
 import MiracleMouseControl from "./mouse";
+import * as MiracleEntity from "./entity";
+import * as MiracleGraphic from "./graphic";
+import * as MiracleControl from "./control";
 
-interface Viewport {
+export interface Viewport {
     height: number;
     width: number;
 }
 
-class Miracle {
+export class Miracle {
     private low_canvas: HTMLCanvasElement;
     private up_canvas: HTMLCanvasElement | null;
     public readonly entities: Entity[];
@@ -182,4 +185,4 @@ class Miracle {
     }
 }
 
-export default Miracle;
+export {MiracleEntity, MiracleGraphic, MiracleControl};
