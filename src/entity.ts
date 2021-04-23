@@ -362,26 +362,42 @@ abstract class Entity {
 
     /**
      * 转换成图片base64 dataurl
+     * @param scale 在当前大小的基础上在缩放一个比例值 
+     * @param type （与HTMLCanvasElement.toDataURL的第一个参数相同）图片格式
+     * @param quality （与HTMLCanvasElement.toDataURL的第二个参数相同）在指定图片格式为 image/jpeg 或 image/webp的情况下，可以从 0 到 1 的区间内选择图片的质量。如果超出取值范围，将会使用默认值 0.92。
      */
-    public toDataUrl() {
+    public toDataUrl(type?: string, scale?: {x: number, y: number}, quality?: any) {
         const canvas = document.createElement("canvas");
-        const min_x = Math.min(this.bound.lt.x, this.bound.ld.x, this.bound.rt.x, this.bound.rd.x);
+        let min_x = Math.min(this.bound.lt.x, this.bound.ld.x, this.bound.rt.x, this.bound.rd.x);
         const max_x = Math.max(this.bound.lt.x, this.bound.ld.x, this.bound.rt.x, this.bound.rd.x);
-        const min_y = Math.min(this.bound.lt.y, this.bound.ld.y, this.bound.rt.y, this.bound.rd.y);
+        let min_y = Math.min(this.bound.lt.y, this.bound.ld.y, this.bound.rt.y, this.bound.rd.y);
         const max_y = Math.max(this.bound.lt.y, this.bound.ld.y, this.bound.rt.y, this.bound.rd.y);
         const height = max_y - min_y;
         const width = max_x - min_x;
-        canvas.width = width;
-        canvas.height = height;
-        canvas.style.width = `${width}px`;
-        canvas.style.height = `${height}px`
+        if (scale) {
+            canvas.width = scale.x * width;
+            canvas.height = scale.y * height;
+            canvas.style.width = `${scale.x * width}px`;
+            canvas.style.height = `${scale.y * height}px`;
+        } else {
+            canvas.width = width;
+            canvas.height = height;
+            canvas.style.width = `${width}px`;
+            canvas.style.height = `${height}px`;
+        }
+
         const ctx = canvas.getContext("2d");
-        ctx?.translate(-min_x, -min_y);
+        if (scale) {
+            ctx?.scale(scale.x, scale.y);
+            ctx?.translate(-min_x, -min_y);
+        } else {
+            ctx?.translate(-min_x, -min_y);
+        }
         if (ctx) {
             this.drawContent(ctx);
             ctx.resetTransform();
         }
-        return canvas.toDataURL();
+        return canvas.toDataURL(type, quality);
     }
 }
 
