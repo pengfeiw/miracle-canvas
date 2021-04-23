@@ -1,13 +1,27 @@
 import Entity from "./entity";
 import MiracleMouseControl from "./mouse";
-import * as MiracleEntity from "./entity";
-import * as MiracleGraphic from "./graphic";
-import * as MiracleControl from "./control";
 
-export class Miracle {
+interface Viewport {
+    height: number;
+    width: number;
+}
+
+class Miracle {
     private low_canvas: HTMLCanvasElement;
     private up_canvas: HTMLCanvasElement | null;
-    public entities: Entity[];
+    public readonly entities: Entity[];
+    /**
+     * 当前canvas的视口
+     */
+    public get viewport(): Viewport {
+        if (this.up_canvas) {
+            return {
+                height: this.up_canvas.height,
+                width: this.up_canvas.width
+            }
+        }
+        return {height: 0, width: 0};
+    }
     /**
      * x方向缩放是否禁用
      */
@@ -29,7 +43,7 @@ export class Miracle {
     /**
      *  旋转是否禁用
      */
-    public set rotateLocked(value: boolean){
+    public set rotateLocked(value: boolean) {
         this.entities.forEach((ent) => ent.rotateLocked = value);
     }
 
@@ -91,14 +105,14 @@ export class Miracle {
             }
         }
     }
-    
+
     /**
      * 重绘
      */
     public redraw() {
         const ctx = this.up_canvas?.getContext("2d");
         if (ctx) {
-            ctx.clearRect(0, 0, ctx.canvas.clientWidth, ctx.canvas.clientHeight);
+            ctx.clearRect(-2, -2, ctx.canvas.clientWidth + 4, ctx.canvas.clientHeight + 4);
             for (let i = 0; i < this.entities.length; i++) {
                 this.entities[i].draw(ctx);
             }
@@ -115,15 +129,57 @@ export class Miracle {
     /**
      * 删除一个entity
      */
-    public removeEntity(entity: Entity) {
-        const index = this.entities.indexOf(entity);
-        if (index > -1) {
-            this.entities.splice(index, 1);
-            this.redraw();
-        } else {
-            throw new Error("要删除的entity，不存在。")
+    public removeEntity(...entities: Entity[]) {
+        for (let i = 0; i < entities.length; i++) {
+            const entity = entities[i];
+            const index = this.entities.indexOf(entity);
+            if (index > -1) {
+                this.entities.splice(index, 1);
+                this.redraw();
+            } else {
+                throw new Error("要删除的entity，不存在。")
+            }
+        }
+    }
+
+    /**
+     * 删除所有entity，清空画布
+     */
+    public removeAll() {
+        while(this.entities.length > 0) {
+            this.entities.pop();
+        }
+
+        this.redraw();
+    }
+
+    /**
+     * 转换成图片base64 dataurl
+     * @param scale 在当前大小的基础上在缩放一个比例值 
+     * @param type （与HTMLCanvasElement.toDataURL的第一个参数相同）图片格式
+     * @param quality （与HTMLCanvasElement.toDataURL的第二个参数相同）在指定图片格式为 image/jpeg 或 image/webp的情况下，可以从 0 到 1 的区间内选择图片的质量。如果超出取值范围，将会使用默认值 0.92。
+     */
+    public toDataUrl(type?: string, scale?: {x: number, y: number}, quality?: any) {
+        if (this.up_canvas) {
+            const canvas = this.up_canvas.cloneNode() as HTMLCanvasElement;
+            if (scale) {
+                canvas.style.height = `${scale.y * this.viewport.height}px`;
+                canvas.style.width = `${scale.x * this.viewport.width}px`;
+                canvas.height = scale.y * this.viewport.height;
+                canvas.width = scale.x * this.viewport.width;
+            }
+
+            const ctx = canvas.getContext("2d");
+
+            if (scale) {
+                ctx?.scale(scale.x, scale.y);
+            }
+            if (ctx) {
+                ctx.drawImage(this.up_canvas, 0, 0);
+                return canvas.toDataURL(type, quality);
+            }
         }
     }
 }
 
-export {MiracleEntity, MiracleGraphic, MiracleControl};
+export default Miracle;
