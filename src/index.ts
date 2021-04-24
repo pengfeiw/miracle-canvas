@@ -12,6 +12,23 @@ export interface Viewport {
 export class Miracle {
     private low_canvas: HTMLCanvasElement;
     private up_canvas: HTMLCanvasElement | null;
+
+    //============canvas store property, Recover when dispose=================
+    private low_canvas_className_store = "";
+    //============canvas store property, Recover when dispose=================
+
+
+    /**
+     * 限制entity在canvas内部
+     */
+    public set limitInCanvas(value: boolean) {
+        if (this.mouseControl) {
+            this.mouseControl.limitInCanvas = value;
+        }
+    }
+    /**
+     * 所有entity
+     */
     public readonly entities: Entity[];
     /**
      * 当前canvas的视口
@@ -56,6 +73,9 @@ export class Miracle {
         this.low_canvas = canvas;
         const parentElement = canvas.parentElement;
 
+        // 存储canvas原有属性
+        this.low_canvas_className_store = this.low_canvas.className;
+
         this.up_canvas = null;
         if (parentElement) {
             parentElement.removeChild(canvas);
@@ -88,6 +108,9 @@ export class Miracle {
     }
 
     public dispose() {
+        // 恢复原有canvas的属性
+        this.low_canvas.className = this.low_canvas_className_store;
+
         if (this.up_canvas) {
             const canvasContainer = this.up_canvas.parentElement;
             if (canvasContainer) {

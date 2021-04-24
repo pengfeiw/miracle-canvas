@@ -68,6 +68,7 @@ class MiracleMouseControl {
     private mouseHoveEntity?: Entity; // 鼠标未拖拽时，当前鼠标悬浮的Entity
     private activeCollection?: EntityCollection; // 当激活的entity个数大于1时，activeCollection不是undefined
     private canvas: HTMLCanvasElement; // entity所在的画布
+    public limitInCanvas = false; // 是否限制entity在canvas内部
     private dragging = false; // 是否正在拖拽
     private mouseDownPosition?: Point; // 鼠标点击位置
     private operator = Operator.BoxSelect; // 用户此时的操作类型
@@ -90,7 +91,7 @@ class MiracleMouseControl {
         const ctx = this.canvas.getContext("2d");
         if (ctx) {
             // 绘制动态矩形
-            ctx.clearRect(0, 0, this.canvas.clientWidth, this.canvas.clientHeight);
+            ctx.clearRect(-2, -2, this.canvas.clientWidth + 4, this.canvas.clientHeight + 4);
             ctx.setLineDash([]);
 
             const drawControlPoint_store: boolean[] = [];
@@ -163,6 +164,29 @@ class MiracleMouseControl {
         const activeEntities = this.getActiveEntities();
         for (let i = 0; i < activeEntities.length; i++) {
             activeEntities[i].displacement(new Vector(event.movementX, event.movementY));
+            if (this.limitInCanvas) {
+                const bound = activeEntities[i].bound;
+                const min_x = Math.min(bound.lt.x, bound.ld.x, bound.rt.x, bound.rd.x);
+                const max_x = Math.max(bound.lt.x, bound.ld.x, bound.rt.x, bound.rd.x);
+                const min_y = Math.min(bound.lt.y, bound.ld.y, bound.rt.y, bound.rd.y);
+                const max_y = Math.max(bound.lt.y, bound.ld.y, bound.rt.y, bound.rd.y);
+
+                let move_x = 0, move_y = 0;
+                if (min_x < 0) {
+                    move_x = -min_x;
+                }
+                if (max_x > this.canvas.width) {
+                    move_x = -(max_x - this.canvas.width);
+                }
+                if (min_y < 0) {
+                    move_y = -min_y;
+                }
+                if (max_y > this.canvas.height) {
+                    move_y = -(max_y - this.canvas.height);
+                }
+
+                activeEntities[i].displacement(new Vector(move_x, move_y));
+            }
         }
         this.redraw();
     };
@@ -285,7 +309,7 @@ class MiracleMouseControl {
             this.operator = Operator.BoxSelect;
             this.mouseHoveEntity = undefined;
             const mousePoint = new Point(event.offsetX, event.offsetY);
-            document.body.style.cursor = "auto";
+            this.canvas.style.cursor = "auto";
 
             const activeEntities = this.getActiveEntities();
             // 判断是否处于控制点内
@@ -308,14 +332,14 @@ class MiracleMouseControl {
                     // 左上角控制点
                     const ltCtrBoundD = entity.getControlPointBound_lt_device();
                     if (isMouseInControlBound(ltCtrBoundD)) {
-                        document.body.style.cursor = "pointer";
+                        this.canvas.style.cursor = "pointer";
                         this.operator = Operator.ChangeEntitySizeLt;
                         return;
                     }
                     // 左下
                     const lbCtrBoundD = entity.getControlPointBound_lb_device();
                     if (isMouseInControlBound(lbCtrBoundD)) {
-                        document.body.style.cursor = "pointer";
+                        this.canvas.style.cursor = "pointer";
                         this.operator = Operator.ChangeEntitySizeLb;
                         return;
                     }
@@ -323,7 +347,7 @@ class MiracleMouseControl {
                     // 右下
                     const RbCtrBoundD = entity.getControlPointBound_rb_device();
                     if (isMouseInControlBound(RbCtrBoundD)) {
-                        document.body.style.cursor = "pointer";
+                        this.canvas.style.cursor = "pointer";
                         this.operator = Operator.ChangeEntitySizeRb;
                         return;
                     }
@@ -331,7 +355,7 @@ class MiracleMouseControl {
                     // 右上
                     const RtCtrBoundD = entity.getControlPointBound_rt_device();
                     if (isMouseInControlBound(RtCtrBoundD)) {
-                        document.body.style.cursor = "pointer";
+                        this.canvas.style.cursor = "pointer";
                         this.operator = Operator.ChangeEntitySizeRt;
                         return;
                     }
@@ -341,7 +365,7 @@ class MiracleMouseControl {
                     // 左中
                     const lmCtrBoundD = entity.getControlPointBound_lm_device();
                     if (isMouseInControlBound(lmCtrBoundD)) {
-                        document.body.style.cursor = "pointer";
+                        this.canvas.style.cursor = "pointer";
                         this.operator = Operator.ChangeEntitySizeLm;
                         return;
                     }
@@ -349,7 +373,7 @@ class MiracleMouseControl {
                     // 右中
                     const RmCtrBoundD = entity.getControlPointBound_rm_device();
                     if (isMouseInControlBound(RmCtrBoundD)) {
-                        document.body.style.cursor = "pointer";
+                        this.canvas.style.cursor = "pointer";
                         this.operator = Operator.ChangeEntitySizeRm;
                         return;
                     }
@@ -359,7 +383,7 @@ class MiracleMouseControl {
                     // 中下
                     const MbCtrBoundD = entity.getControlPointBound_bm_device();
                     if (isMouseInControlBound(MbCtrBoundD)) {
-                        document.body.style.cursor = "pointer";
+                        this.canvas.style.cursor = "pointer";
                         this.operator = Operator.ChangeEntitySizeMb;
                         return;
                     }
@@ -367,7 +391,7 @@ class MiracleMouseControl {
                     // 中上
                     const MtCtrBoundD = entity.getControlPointBound_tm_device();
                     if (isMouseInControlBound(MtCtrBoundD)) {
-                        document.body.style.cursor = "pointer";
+                        this.canvas.style.cursor = "pointer";
                         this.operator = Operator.ChangeEntitySizeMt;
                         return;
                     }
@@ -377,7 +401,7 @@ class MiracleMouseControl {
                     // 旋转点
                     const rotateCtrBoundD = entity.getControlPointBound_rotate_device();
                     if (isMouseInControlBound(rotateCtrBoundD)) {
-                        document.body.style.cursor = "crosshair";
+                        this.canvas.style.cursor = "crosshair";
                         this.operator = Operator.RotateEntity;
                         return;
                     }
@@ -390,7 +414,7 @@ class MiracleMouseControl {
                         const controlBound = control.bound();
 
                         if (isMouseInControlBound(controlBound)) {
-                            document.body.style.cursor = control.cursorStyle;
+                            this.canvas.style.cursor = control.cursorStyle;
                             this.operator = Operator.ControlClick;
                             return;
                         }
@@ -401,7 +425,7 @@ class MiracleMouseControl {
             if (this.activeCollection) {
                 const boundD = this.activeCollection.bound;
                 if (GraphicsAssist.isPointInRectangle(mousePoint, boundD)) {
-                    document.body.style.cursor = "move";
+                    this.canvas.style.cursor = "move";
                     this.operator = Operator.MoveEntity;
                     return;
                 }
@@ -426,7 +450,7 @@ class MiracleMouseControl {
 
                 // 鼠标位于entity包围框内，鼠标指针为"move"
                 if (GraphicsAssist.isPointInRectangle(mousePoint, boundD)) {
-                    document.body.style.cursor = "move";
+                    this.canvas.style.cursor = "move";
                     this.operator = Operator.MoveEntity;
                     this.mouseHoveEntity = ent;
                     return;
