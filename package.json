@@ -1,6 +1,6 @@
 {
     "name": "miracle-canvas",
-    "version": "1.0.5",
+    "version": "1.0.6",
     "description": "Enhance the functionality of the html canvas.You can add entity on canvas, you can move、resize、rotate and zoom the entity you add.",
     "main": "./lib/cjs/index.js",
     "module": "./lib/esm/index.js",

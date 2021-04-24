@@ -18,16 +18,23 @@ with yarn:
 ```bash
 yarn add mriacle-canvas
 ```
+with cdn:
+```js
+// you can change the version number in src, below is version 1.0.6
+<script src="https://cdn.jsdelivr.net/gh/pengfeiw/miracle-canvas@1.0.6/src/bundle.js"></script>
+```
 
 ### how to use
-First set canvas with miracle:
+1. First set canvas with miracle:
+
 ```javascript
 import {Miracle} from "miracle-canvas";
 
 const miracle = new Miracle(canvas);
 ```
 
-Add some entity(shape、image etc):
+2. Add some entity(shape、image etc):
+
 ```javascript
 import {MiracleEntity, MiracleGraphic, MiracleControl} from "./miracle/index";
 
@@ -69,7 +76,8 @@ const img = new Image(new Point(200, 300), "/image.png", {
 miracle.addEntity(circle, rect, triangle, img);
 ```
 
-You can also set the visible of entity and the control point.
+3. You can also set the visible of entity and the control point.
+
 ```javascript
 // set the visible of entity
 triangle.visible = false;
@@ -81,7 +89,7 @@ miracle.diagLocked = false;
 miracle.rotateLocked = false;
 ```
 
-Add custom control, only support `ImageControl` now.
+4. Add custom control, only support `ImageControl` now.
 
 ```typescript
 import {MiracleControl} from "./miracle/index";
@@ -97,3 +105,14 @@ btn.mouseUpHandler = () => {
 // add the button to Entity
 rect.addControl(btn);
 ```
+
+5. if used with cdn. You access the class moudule under the `GlobalMiracle`:
+
+```typescript
+GlobalMiracle.Miracle;
+GlobalMiracle.MiracleEntity;
+GlobalMiracle.MiracleGraphic;
+GlobalMiracle.MiracleControl;
+```
+
+   
