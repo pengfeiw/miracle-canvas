@@ -1,7 +1,7 @@
 # miracle-canvas
-You can add moveable、resizeable、zoomable、rotateable object(text、shape and iamge, etc) on html canvas with this library.
+You can add movable、resizable、zoomable、rotatable object(text、shape and image, etc) on html canvas with this library.
 
-![](https://cdn.jsdelivr.net/gh/pengfeiw/personal-image-cdn@1.0.0/image/1.gif)
+![](https://cdn.jsdelivr.net/gh/pengfeiw/personal-image-cdn@1.0.0/image/miracle-canvas.gif)
 
 blog: [https://pengfeixc.com/blog/607c137a6d87a10eb2594fad](http://pengfeixc.com/blog/607c137a6d87a10eb2594fad)
 
@@ -115,4 +115,9 @@ GlobalMiracle.MiracleGraphic;
 GlobalMiracle.MiracleControl;
 ```
 
-   
+### codepen
+
+<iframe height="400" style="width: 100%;" scrolling="no" title="miracle-canvas" src="https://codepen.io/AhCola/embed/qBRgEQb?height=160&theme-id=light&default-tab=js" frameborder="no" loading="lazy" allowtransparency="true" allowfullscreen="true">
+    See the Pen <a href='https://codepen.io/AhCola/pen/qBRgEQb'>miracle-canvas</a> by Pengfei Wang
+    (<a href='https://codepen.io/AhCola'>@AhCola</a>) on <a href='https://codepen.io'>CodePen</a>.
+</iframe>
