@@ -1,7 +1,7 @@
 import Entity, {EntityCollection} from "./entity";
 import {Rectangle, Point, GraphicsAssist, Vector} from "./graphic";
 
-export enum Operator {
+export enum OperatorStatus {
     /**
      * 框选操作
      */
@@ -52,42 +52,44 @@ export enum Operator {
     ChangeEntitySizeMt
 }
 
+const getTouchPos = (canvas: HTMLCanvasElement, event: TouchEvent): {x: number, y: number} => {
+    const rect = canvas.getBoundingClientRect();
+    return {
+        x: event.changedTouches[0].clientX - rect.left,
+        y: event.changedTouches[0].clientY - rect.top
+    };
+};
+
+
 interface DynamicRect {
     lt: Point;
     rd: Point;
 }
 
-class MiracleMouseControl {
-    private entities: Entity[]; // 所有entity
-    /**
-     * 可见的Entity
-     */
-    private get visibleEntities() {
-        return this.entities.filter(ent => ent.visible);
-    }
-    private mouseHoveEntity?: Entity; // 鼠标未拖拽时，当前鼠标悬浮的Entity
-    private activeCollection?: EntityCollection; // 当激活的entity个数大于1时，activeCollection不是undefined
-    private canvas: HTMLCanvasElement; // entity所在的画布
+abstract class Operator {
+    protected entities: Entity[]; // 所有entity
+    protected activeCollection?: EntityCollection; // 当激活的entity个数大于1时，activeCollection不是undefined
+    protected canvas: HTMLCanvasElement; // entity所在的画布
     public limitInCanvas = false; // 是否限制entity在canvas内部
-    private dragging = false; // 是否正在拖拽
-    private mouseDownPosition?: Point; // 鼠标点击位置
-    private operator = Operator.BoxSelect; // 用户此时的操作类型
-    private dynamicRect?: DynamicRect;
+    protected dragging = false; // 是否正在拖拽
+    protected operatorDownPosition?: Point; // 鼠标点击位置
+    protected operator = OperatorStatus.BoxSelect; // 用户此时的操作类型
+    protected dynamicRect?: DynamicRect;
 
     public constructor(entities: Entity[], canvas: HTMLCanvasElement) {
         this.entities = entities;
         this.canvas = canvas;
-        this.initEvent();
     }
 
-    public initEvent() {
-        this.canvas.addEventListener("mousedown", this.onMouseDown);
-        this.canvas.addEventListener("mouseup", this.onMouseUp);
-        this.canvas.addEventListener("mousemove", this.onMouseMove);
-        this.canvas.addEventListener("mousemove", this.onMouseMove_setOperator);
+    protected get visibleEntities() {
+        return this.entities.filter(ent => ent.visible);
     }
 
-    private redraw() {
+    protected getActiveEntities() {
+        return this.visibleEntities.filter((ent) => ent.isActive);
+    }
+
+    protected redraw() {
         const ctx = this.canvas.getContext("2d");
         if (ctx) {
             // 绘制动态矩形
@@ -129,7 +131,7 @@ class MiracleMouseControl {
             }
 
             // 绘制动态矩形
-            if (this.operator === Operator.BoxSelect && this.dynamicRect) {
+            if (this.operator === OperatorStatus.BoxSelect && this.dynamicRect) {
                 const dynaimcRect = this.dynamicRect;
                 ctx.setLineDash([6]);
                 ctx.strokeStyle = "black";
@@ -145,25 +147,26 @@ class MiracleMouseControl {
         }
     }
 
-    //#region mouse move操作，涉及的变化
     /**
      * 绘制动态框选框 
      */
-    private drawSelectBox = (event: MouseEvent) => {
-        this.dynamicRect = {
-            lt: this.dynamicRect!.lt,
-            rd: new Point(event.offsetX, event.offsetY)
+    protected drawSelectBox = (operatorPos: Point) => {
+        if (this.dynamicRect) {
+            this.dynamicRect = {
+                lt: this.dynamicRect!.lt,
+                rd: operatorPos
+            }
+            this.redraw();            
         }
-        this.redraw();
     };
 
     /**
      * 移动entity时，动态绘制图元 
      */
-    private MoveEntity = (event: MouseEvent) => {
+    protected MoveEntity = (movement: {x: number, y: number}) => {
         const activeEntities = this.getActiveEntities();
         for (let i = 0; i < activeEntities.length; i++) {
-            activeEntities[i].displacement(new Vector(event.movementX, event.movementY));
+            activeEntities[i].displacement(new Vector(movement.x, movement.y));
             if (this.limitInCanvas) {
                 const bound = activeEntities[i].bound;
                 const min_x = Math.min(bound.lt.x, bound.ld.x, bound.rt.x, bound.rd.x);
@@ -194,7 +197,7 @@ class MiracleMouseControl {
     /**
      * 改变entity尺寸
      */
-    private resizeEntity = (event: MouseEvent) => {
+    protected resizeEntity = (operatorPos: {x: number, y: number}) => {
         const activeEntities = this.getActiveEntities();
         if (activeEntities.length > 0) {
             let boundD: Rectangle;
@@ -205,68 +208,68 @@ class MiracleMouseControl {
                 boundD = entity.bound;
             }
 
-            if (this.operator === Operator.ChangeEntitySizeLt) {
+            if (this.operator === OperatorStatus.ChangeEntitySizeLt) {
                 const origin = boundD.rd;
-                const cursorDisToOrigin = Math.sqrt(Math.pow(event.offsetX - origin.x, 2) + Math.pow(event.offsetY - origin.y, 2));
+                const cursorDisToOrigin = Math.sqrt(Math.pow(operatorPos.x - origin.x, 2) + Math.pow(operatorPos.y - origin.y, 2));
                 const zoomScale = cursorDisToOrigin / Math.sqrt(Math.pow(boundD.lt.x - boundD.rd.x, 2) + Math.pow(boundD.lt.y - boundD.rd.y, 2));
 
                 for (let i = 0; i < activeEntities.length; i++) {
                     activeEntities[i].zoom(origin, zoomScale);
                 }
             }
-            else if (this.operator === Operator.ChangeEntitySizeLm) {
+            else if (this.operator === OperatorStatus.ChangeEntitySizeLm) {
                 const origin = GraphicsAssist.mid(boundD.rt, boundD.rd);
-                const cursorDisToOrigin = Math.sqrt(Math.pow(event.offsetX - origin.x, 2) + Math.pow(event.offsetY - origin.y, 2));
+                const cursorDisToOrigin = Math.sqrt(Math.pow(operatorPos.x - origin.x, 2) + Math.pow(operatorPos.y - origin.y, 2));
                 const zoomScale = cursorDisToOrigin / Math.sqrt(Math.pow(boundD.lt.x - boundD.rt.x, 2) + Math.pow(boundD.lt.y - boundD.rt.y, 2));
 
                 for (let i = 0; i < activeEntities.length; i++) {
                     activeEntities[i].zoomX(origin, zoomScale);
                 }
             }
-            else if (this.operator === Operator.ChangeEntitySizeLb) {
+            else if (this.operator === OperatorStatus.ChangeEntitySizeLb) {
                 const origin = boundD.rt;
-                const cursorDisToOrigin = Math.sqrt(Math.pow(event.offsetX - origin.x, 2) + Math.pow(event.offsetY - origin.y, 2));
+                const cursorDisToOrigin = Math.sqrt(Math.pow(operatorPos.x - origin.x, 2) + Math.pow(operatorPos.y - origin.y, 2));
                 const zoomScale = cursorDisToOrigin / Math.sqrt(Math.pow(boundD.ld.x - boundD.rt.x, 2) + Math.pow(boundD.ld.y - boundD.rt.y, 2));
 
                 for (let i = 0; i < activeEntities.length; i++) {
                     activeEntities[i].zoom(origin, zoomScale);
                 }
             }
-            else if (this.operator === Operator.ChangeEntitySizeMb) {
+            else if (this.operator === OperatorStatus.ChangeEntitySizeMb) {
                 const origin = GraphicsAssist.mid(boundD.lt, boundD.rt);
-                const cursorDisToOrigin = Math.sqrt(Math.pow(event.offsetX - origin.x, 2) + Math.pow(event.offsetY - origin.y, 2));
+                const cursorDisToOrigin = Math.sqrt(Math.pow(operatorPos.x - origin.x, 2) + Math.pow(operatorPos.y - origin.y, 2));
                 const zoomScale = cursorDisToOrigin / Math.sqrt(Math.pow(boundD.lt.x - boundD.ld.x, 2) + Math.pow(boundD.lt.y - boundD.ld.y, 2));
                 for (let i = 0; i < activeEntities.length; i++) {
                     activeEntities[i].zoomY(origin, zoomScale);
                 }
             }
-            else if (this.operator === Operator.ChangeEntitySizeRb) {
+            else if (this.operator === OperatorStatus.ChangeEntitySizeRb) {
                 const origin = boundD.lt;
-                const cursorDisToOrigin = Math.sqrt(Math.pow(event.offsetX - origin.x, 2) + Math.pow(event.offsetY - origin.y, 2));
+                const cursorDisToOrigin = Math.sqrt(Math.pow(operatorPos.x - origin.x, 2) + Math.pow(operatorPos.y - origin.y, 2));
                 const zoomScale = cursorDisToOrigin / Math.sqrt(Math.pow(boundD.lt.x - boundD.rd.x, 2) + Math.pow(boundD.lt.y - boundD.rd.y, 2));
                 for (let i = 0; i < activeEntities.length; i++) {
                     activeEntities[i].zoom(origin, zoomScale);
                 }
             }
-            else if (this.operator === Operator.ChangeEntitySizeRm) {
+            else if (this.operator === OperatorStatus.ChangeEntitySizeRm) {
                 const origin = GraphicsAssist.mid(boundD.lt, boundD.ld);
-                const cursorDisToOrigin = Math.sqrt(Math.pow(event.offsetX - origin.x, 2) + Math.pow(event.offsetY - origin.y, 2));
+                const cursorDisToOrigin = Math.sqrt(Math.pow(operatorPos.x - origin.x, 2) + Math.pow(operatorPos.y - origin.y, 2));
                 const zoomScale = cursorDisToOrigin / Math.sqrt(Math.pow(boundD.lt.x - boundD.rt.x, 2) + Math.pow(boundD.lt.y - boundD.rt.y, 2));
                 for (let i = 0; i < activeEntities.length; i++) {
                     activeEntities[i].zoomX(origin, zoomScale);
                 }
             }
-            else if (this.operator === Operator.ChangeEntitySizeRt) {
+            else if (this.operator === OperatorStatus.ChangeEntitySizeRt) {
                 const origin = boundD.ld;
-                const cursorDisToOrigin = Math.sqrt(Math.pow(event.offsetX - origin.x, 2) + Math.pow(event.offsetY - origin.y, 2));
+                const cursorDisToOrigin = Math.sqrt(Math.pow(operatorPos.x - origin.x, 2) + Math.pow(operatorPos.y - origin.y, 2));
                 const zoomScale = cursorDisToOrigin / Math.sqrt(Math.pow(boundD.lt.x - boundD.rd.x, 2) + Math.pow(boundD.lt.y - boundD.rd.y, 2));
                 for (let i = 0; i < activeEntities.length; i++) {
                     activeEntities[i].zoom(origin, zoomScale);
                 }
             }
-            else if (this.operator === Operator.ChangeEntitySizeMt) {
+            else if (this.operator === OperatorStatus.ChangeEntitySizeMt) {
                 const origin = GraphicsAssist.mid(boundD.ld, boundD.rd);
-                const cursorDisToOrigin = Math.sqrt(Math.pow(event.offsetX - origin.x, 2) + Math.pow(event.offsetY - origin.y, 2));
+                const cursorDisToOrigin = Math.sqrt(Math.pow(operatorPos.x - origin.x, 2) + Math.pow(operatorPos.y - origin.y, 2));
                 const zoomScale = cursorDisToOrigin / Math.sqrt(Math.pow(boundD.lt.x - boundD.ld.x, 2) + Math.pow(boundD.lt.y - boundD.ld.y, 2));
                 for (let i = 0; i < activeEntities.length; i++) {
                     activeEntities[i].zoomY(origin, zoomScale);
@@ -275,8 +278,11 @@ class MiracleMouseControl {
             this.redraw();
         }
     };
-
-    private rotateEntity = (event: MouseEvent) => {
+    /**
+     * 旋转操作
+     * @param event 
+     */
+    protected rotateEntity = (operatorPos: {x: number, y: number}) => {
         const activeEntities = this.getActiveEntities();
         if (activeEntities.length > 0) {
             for (let i = 0; i < activeEntities.length; i++) {
@@ -287,7 +293,7 @@ class MiracleMouseControl {
                 const point11 = new Point(point1.x - rotateOrigin.x, point1.y - rotateOrigin.y);
                 const point11Polar = GraphicsAssist.cartesianToPolar(point11);
 
-                const point2 = new Point(event.offsetX, event.offsetY);
+                const point2 = new Point(operatorPos.x, operatorPos.y);
                 const point22 = new Point(point2.x - rotateOrigin.x, point2.y - rotateOrigin.y);
                 const point22Polar = GraphicsAssist.cartesianToPolar(point22);
 
@@ -297,7 +303,25 @@ class MiracleMouseControl {
         }
         this.redraw();
     }
-    //#endregion
+}
+
+/**
+ * 鼠标操作
+ */
+class MouseOperator extends Operator {
+    private mouseHoveEntity?: Entity; // 鼠标未拖拽时，当前鼠标悬浮的Entity
+
+    public constructor(entities: Entity[], canvas: HTMLCanvasElement) {
+        super(entities, canvas);
+        this.initEvent();
+    }
+
+    private initEvent() {
+        this.canvas.addEventListener("mousedown", this.onMouseDown);
+        this.canvas.addEventListener("mouseup", this.onMouseUp);
+        this.canvas.addEventListener("mousemove", this.onMouseMove);
+        this.canvas.addEventListener("mousemove", this.onMouseMove_setOperator);
+    }
 
     //#region 鼠标操作
     /**
@@ -306,7 +330,7 @@ class MiracleMouseControl {
      */
     private onMouseMove_setOperator = (event: MouseEvent) => {
         if (this.dragging === false) {
-            this.operator = Operator.BoxSelect;
+            this.operator = OperatorStatus.BoxSelect;
             this.mouseHoveEntity = undefined;
             const mousePoint = new Point(event.offsetX, event.offsetY);
             this.canvas.style.cursor = "auto";
@@ -333,14 +357,14 @@ class MiracleMouseControl {
                     const ltCtrBoundD = entity.getControlPointBound_lt_device();
                     if (isMouseInControlBound(ltCtrBoundD)) {
                         this.canvas.style.cursor = "pointer";
-                        this.operator = Operator.ChangeEntitySizeLt;
+                        this.operator = OperatorStatus.ChangeEntitySizeLt;
                         return;
                     }
                     // 左下
                     const lbCtrBoundD = entity.getControlPointBound_lb_device();
                     if (isMouseInControlBound(lbCtrBoundD)) {
                         this.canvas.style.cursor = "pointer";
-                        this.operator = Operator.ChangeEntitySizeLb;
+                        this.operator = OperatorStatus.ChangeEntitySizeLb;
                         return;
                     }
 
@@ -348,7 +372,7 @@ class MiracleMouseControl {
                     const RbCtrBoundD = entity.getControlPointBound_rb_device();
                     if (isMouseInControlBound(RbCtrBoundD)) {
                         this.canvas.style.cursor = "pointer";
-                        this.operator = Operator.ChangeEntitySizeRb;
+                        this.operator = OperatorStatus.ChangeEntitySizeRb;
                         return;
                     }
 
@@ -356,7 +380,7 @@ class MiracleMouseControl {
                     const RtCtrBoundD = entity.getControlPointBound_rt_device();
                     if (isMouseInControlBound(RtCtrBoundD)) {
                         this.canvas.style.cursor = "pointer";
-                        this.operator = Operator.ChangeEntitySizeRt;
+                        this.operator = OperatorStatus.ChangeEntitySizeRt;
                         return;
                     }
                 }
@@ -366,7 +390,7 @@ class MiracleMouseControl {
                     const lmCtrBoundD = entity.getControlPointBound_lm_device();
                     if (isMouseInControlBound(lmCtrBoundD)) {
                         this.canvas.style.cursor = "pointer";
-                        this.operator = Operator.ChangeEntitySizeLm;
+                        this.operator = OperatorStatus.ChangeEntitySizeLm;
                         return;
                     }
 
@@ -374,7 +398,7 @@ class MiracleMouseControl {
                     const RmCtrBoundD = entity.getControlPointBound_rm_device();
                     if (isMouseInControlBound(RmCtrBoundD)) {
                         this.canvas.style.cursor = "pointer";
-                        this.operator = Operator.ChangeEntitySizeRm;
+                        this.operator = OperatorStatus.ChangeEntitySizeRm;
                         return;
                     }
                 }
@@ -384,7 +408,7 @@ class MiracleMouseControl {
                     const MbCtrBoundD = entity.getControlPointBound_bm_device();
                     if (isMouseInControlBound(MbCtrBoundD)) {
                         this.canvas.style.cursor = "pointer";
-                        this.operator = Operator.ChangeEntitySizeMb;
+                        this.operator = OperatorStatus.ChangeEntitySizeMb;
                         return;
                     }
 
@@ -392,7 +416,7 @@ class MiracleMouseControl {
                     const MtCtrBoundD = entity.getControlPointBound_tm_device();
                     if (isMouseInControlBound(MtCtrBoundD)) {
                         this.canvas.style.cursor = "pointer";
-                        this.operator = Operator.ChangeEntitySizeMt;
+                        this.operator = OperatorStatus.ChangeEntitySizeMt;
                         return;
                     }
                 }
@@ -402,7 +426,7 @@ class MiracleMouseControl {
                     const rotateCtrBoundD = entity.getControlPointBound_rotate_device();
                     if (isMouseInControlBound(rotateCtrBoundD)) {
                         this.canvas.style.cursor = "crosshair";
-                        this.operator = Operator.RotateEntity;
+                        this.operator = OperatorStatus.RotateEntity;
                         return;
                     }
                 }
@@ -415,7 +439,7 @@ class MiracleMouseControl {
 
                         if (isMouseInControlBound(controlBound)) {
                             this.canvas.style.cursor = control.cursorStyle;
-                            this.operator = Operator.ControlClick;
+                            this.operator = OperatorStatus.ControlClick;
                             return;
                         }
                     }
@@ -426,7 +450,7 @@ class MiracleMouseControl {
                 const boundD = this.activeCollection.bound;
                 if (GraphicsAssist.isPointInRectangle(mousePoint, boundD)) {
                     this.canvas.style.cursor = "move";
-                    this.operator = Operator.MoveEntity;
+                    this.operator = OperatorStatus.MoveEntity;
                     return;
                 }
             }
@@ -451,7 +475,7 @@ class MiracleMouseControl {
                 // 鼠标位于entity包围框内，鼠标指针为"move"
                 if (GraphicsAssist.isPointInRectangle(mousePoint, boundD)) {
                     this.canvas.style.cursor = "move";
-                    this.operator = Operator.MoveEntity;
+                    this.operator = OperatorStatus.MoveEntity;
                     this.mouseHoveEntity = ent;
                     return;
                 }
@@ -462,14 +486,14 @@ class MiracleMouseControl {
     private onMouseDown = (event: MouseEvent) => {
         if (event.button === 0) {
             this.dragging = true;
-            this.mouseDownPosition = new Point(event.offsetX, event.offsetY);
-            if (this.operator === Operator.MoveEntity) {
+            this.operatorDownPosition = new Point(event.offsetX, event.offsetY);
+            if (this.operator === OperatorStatus.MoveEntity) {
                 if (this.getActiveEntities().length > 0) {
                     const boundsD = this.getActiveEntities().map((ent) => ent.bound);
 
                     const unionBoundD = Rectangle.union(boundsD);
 
-                    if (!GraphicsAssist.isPointInRectangle(this.mouseDownPosition, unionBoundD)) {
+                    if (!GraphicsAssist.isPointInRectangle(this.operatorDownPosition, unionBoundD)) {
                         this.visibleEntities.forEach((ent) => {
                             ent.isActive = false;
                         })
@@ -485,7 +509,7 @@ class MiracleMouseControl {
                     }
                 }
             }
-            if (this.operator === Operator.ControlClick) {
+            if (this.operator === OperatorStatus.ControlClick) {
                 const isMouseInControlBound = (ctrBoundD: Rectangle) => {
                     const mousePoint = new Point(event.offsetX, event.offsetY);
                     if (GraphicsAssist.isPointInRectangle(mousePoint, ctrBoundD)) {
@@ -500,11 +524,11 @@ class MiracleMouseControl {
                     ctr?.mouseDownHandler(event);
                 }
             }
-            if (this.operator === Operator.BoxSelect) {
+            if (this.operator === OperatorStatus.BoxSelect) {
                 // this.dynamicRect = new Rectangle(this.mouseDownPosition, 0, 0);
                 this.dynamicRect = {
-                    lt: this.mouseDownPosition,
-                    rd: this.mouseDownPosition
+                    lt: this.operatorDownPosition,
+                    rd: this.operatorDownPosition
                 };
                 this.visibleEntities.forEach((ent) => {
                     ent.isActive = false;
@@ -517,38 +541,38 @@ class MiracleMouseControl {
     private onMouseMove = (event: MouseEvent) => {
         if (this.dragging) {
             switch (this.operator) {
-                case Operator.BoxSelect:
-                    this.drawSelectBox(event);
+                case OperatorStatus.BoxSelect:
+                    this.drawSelectBox(new Point(event.offsetX, event.offsetY));
                     break;
-                case Operator.MoveEntity:
-                    this.MoveEntity(event);
+                case OperatorStatus.MoveEntity:
+                    this.MoveEntity({x: event.movementX, y: event.movementY});
                     break;
-                case Operator.ChangeEntitySizeLt:
-                    this.resizeEntity(event);
+                case OperatorStatus.ChangeEntitySizeLt:
+                    this.resizeEntity({x: event.offsetX, y: event.offsetY});
                     break;
-                case Operator.ChangeEntitySizeLb:
-                    this.resizeEntity(event);
+                case OperatorStatus.ChangeEntitySizeLb:
+                    this.resizeEntity({x: event.offsetX, y: event.offsetY});
                     break;
-                case Operator.ChangeEntitySizeLm:
-                    this.resizeEntity(event);
+                case OperatorStatus.ChangeEntitySizeLm:
+                    this.resizeEntity({x: event.offsetX, y: event.offsetY});
                     break;
-                case Operator.ChangeEntitySizeMb:
-                    this.resizeEntity(event);
+                case OperatorStatus.ChangeEntitySizeMb:
+                    this.resizeEntity({x: event.offsetX, y: event.offsetY});
                     break;
-                case Operator.ChangeEntitySizeRb:
-                    this.resizeEntity(event);
+                case OperatorStatus.ChangeEntitySizeRb:
+                    this.resizeEntity({x: event.offsetX, y: event.offsetY});
                     break;
-                case Operator.ChangeEntitySizeRm:
-                    this.resizeEntity(event);
+                case OperatorStatus.ChangeEntitySizeRm:
+                    this.resizeEntity({x: event.offsetX, y: event.offsetY});
                     break;
-                case Operator.ChangeEntitySizeRt:
-                    this.resizeEntity(event);
+                case OperatorStatus.ChangeEntitySizeRt:
+                    this.resizeEntity({x: event.offsetX, y: event.offsetY});
                     break;
-                case Operator.ChangeEntitySizeMt:
-                    this.resizeEntity(event);
+                case OperatorStatus.ChangeEntitySizeMt:
+                    this.resizeEntity({x: event.offsetX, y: event.offsetY});
                     break;
-                case Operator.RotateEntity:
-                    this.rotateEntity(event);
+                case OperatorStatus.RotateEntity:
+                    this.rotateEntity({x: event.offsetX, y: event.offsetY});
                     break;
                 default:
                     break;
@@ -557,7 +581,7 @@ class MiracleMouseControl {
     }
 
     private onMouseUp = (event: MouseEvent) => {
-        if (this.operator === Operator.BoxSelect && this.dynamicRect) {
+        if (this.operator === OperatorStatus.BoxSelect && this.dynamicRect) {
             for (let i = 0; i < this.visibleEntities.length; i++) {
                 const ent = this.visibleEntities[i];
                 const boundD = ent.bound;
@@ -570,7 +594,7 @@ class MiracleMouseControl {
         }
 
         // 自定义控件mouseup事件
-        if (this.operator === Operator.ControlClick) {
+        if (this.operator === OperatorStatus.ControlClick) {
             const isMouseInControlBound = (ctrBoundD: Rectangle) => {
                 const mousePoint = new Point(event.offsetX, event.offsetY);
                 if (GraphicsAssist.isPointInRectangle(mousePoint, ctrBoundD)) {
@@ -600,10 +624,254 @@ class MiracleMouseControl {
         this.redraw();
     }
     //#endregion
-
-    public getActiveEntities() {
-        return this.visibleEntities.filter((ent) => ent.isActive);
-    }
 }
 
-export default MiracleMouseControl;
+/**
+ * 触屏操作
+ */
+class TouchOperator extends Operator {
+    private previousTouch?: {x: number, y: number};
+    public constructor(entities: Entity[], canvas: HTMLCanvasElement) {
+        super(entities, canvas);
+        this.initEvent();
+    }
+
+    private initEvent() {
+        this.canvas.addEventListener("touchstart", this.onTouchStart);
+        this.canvas.addEventListener("touchmove", this.onTouchMove);
+        this.canvas.addEventListener("touchend", this.onTouchEnd);
+    }
+
+    private onTouchStart = (event: TouchEvent) => {
+        this.operator = OperatorStatus.BoxSelect;
+        this.dragging = true;
+        const touchPos = getTouchPos(event?.target as HTMLCanvasElement, event);
+        const touchPoint: Point = new Point(touchPos.x, touchPos.y);
+        this.previousTouch = {x: touchPoint.x, y: touchPoint.y};
+        const activeEnts = this.getActiveEntities();
+        // 判断触摸位置是否在activeCollection包围框内部
+        if (this.activeCollection) {
+            const bound = this.activeCollection.bound;
+            if (GraphicsAssist.isPointInRectangle(new Point(touchPos.x, touchPos.y), bound)) {
+                this.operator = OperatorStatus.MoveEntity;
+            } else {
+                activeEnts.forEach(ent => ent.isActive = false);
+            }
+            return;
+        }
+
+        activeEnts.forEach(ent => ent.isActive = false);
+        if (activeEnts.length > 0) {
+            // 自定义按钮touchStart事件
+            for (let i = 0; i < activeEnts.length; i++) {
+                const ent = activeEnts[i];
+                const ctr = ent.controls.find((control) => GraphicsAssist.isPointInRectangle(touchPoint, control.bound()));
+                if (ctr) {
+                    ctr.touchStart(event);
+                    this.operator = OperatorStatus.ControlClick;
+                    ent.isActive = true;
+                    return;
+                }
+            }
+
+            // 判断是否处于控制点内
+            for (let i = 0; i < activeEnts.length; i++) {
+                const entity = activeEnts[i];
+                if (!entity.diagLocked) {
+                    // 左上角控制点
+                    const ltCtrBoundD = entity.getControlPointBound_lt_device();
+                    if (GraphicsAssist.isPointInRectangle(touchPoint, ltCtrBoundD)) {
+                        this.canvas.style.cursor = "pointer";
+                        this.operator = OperatorStatus.ChangeEntitySizeLt;
+                        entity.isActive = true;
+                        return;
+                    }
+                    // 左下
+                    const lbCtrBoundD = entity.getControlPointBound_lb_device();
+                    if (GraphicsAssist.isPointInRectangle(touchPoint, lbCtrBoundD)) {
+                        this.canvas.style.cursor = "pointer";
+                        this.operator = OperatorStatus.ChangeEntitySizeLb;
+                        entity.isActive = true;
+                        return;
+                    }
+
+                    // 右下
+                    const RbCtrBoundD = entity.getControlPointBound_rb_device();
+                    if (GraphicsAssist.isPointInRectangle(touchPoint, RbCtrBoundD)) {
+                        this.canvas.style.cursor = "pointer";
+                        this.operator = OperatorStatus.ChangeEntitySizeRb;
+                        entity.isActive = true;
+                        return;
+                    }
+
+                    // 右上
+                    const RtCtrBoundD = entity.getControlPointBound_rt_device();
+                    if (GraphicsAssist.isPointInRectangle(touchPoint, RtCtrBoundD)) {
+                        this.canvas.style.cursor = "pointer";
+                        this.operator = OperatorStatus.ChangeEntitySizeRt;
+                        entity.isActive = true;
+                        return;
+                    }
+                }
+
+                if (!entity.xLocked) {
+                    // 左中
+                    const lmCtrBoundD = entity.getControlPointBound_lm_device();
+                    if (GraphicsAssist.isPointInRectangle(touchPoint, lmCtrBoundD)) {
+                        this.canvas.style.cursor = "pointer";
+                        this.operator = OperatorStatus.ChangeEntitySizeLm;
+                        entity.isActive = true;
+                        return;
+                    }
+
+                    // 右中
+                    const RmCtrBoundD = entity.getControlPointBound_rm_device();
+                    if (GraphicsAssist.isPointInRectangle(touchPoint, RmCtrBoundD)) {
+                        this.canvas.style.cursor = "pointer";
+                        this.operator = OperatorStatus.ChangeEntitySizeRm;
+                        entity.isActive = true;
+                        return;
+                    }
+                }
+
+                if (!entity.yLocked) {
+                    // 中下
+                    const MbCtrBoundD = entity.getControlPointBound_bm_device();
+                    if (GraphicsAssist.isPointInRectangle(touchPoint, MbCtrBoundD)) {
+                        this.canvas.style.cursor = "pointer";
+                        this.operator = OperatorStatus.ChangeEntitySizeMb;
+                        entity.isActive = true;
+                        return;
+                    }
+
+                    // 中上
+                    const MtCtrBoundD = entity.getControlPointBound_tm_device();
+                    if (GraphicsAssist.isPointInRectangle(touchPoint, MtCtrBoundD)) {
+                        this.canvas.style.cursor = "pointer";
+                        this.operator = OperatorStatus.ChangeEntitySizeMt;
+                        entity.isActive = true;
+                        return;
+                    }
+                }
+
+                if (!entity.rotateLocked) {
+                    // 旋转点
+                    const rotateCtrBoundD = entity.getControlPointBound_rotate_device();
+                    if (GraphicsAssist.isPointInRectangle(touchPoint, rotateCtrBoundD)) {
+                        this.canvas.style.cursor = "crosshair";
+                        this.operator = OperatorStatus.RotateEntity;
+                        entity.isActive = true;
+                        return;
+                    }
+                }
+            }
+        }
+
+        // 判断是否处于entity的包围框内
+        for (let i = 0; i < this.visibleEntities.length; i++) {
+            const entBound = this.visibleEntities[i].bound;
+            if (GraphicsAssist.isPointInRectangle(new Point(touchPos.x, touchPos.y), entBound)) {
+                this.operator = OperatorStatus.MoveEntity;
+                this.visibleEntities[i].isActive = true;
+                return;
+            }
+        }
+
+        this.dynamicRect = {
+            lt: touchPoint,
+            rd: touchPoint
+        }
+    }
+
+    private onTouchMove = (event: TouchEvent) => {
+        const touchPos = getTouchPos(event.target as HTMLCanvasElement, event);
+
+        switch (this.operator) {
+            case OperatorStatus.BoxSelect:
+                this.drawSelectBox(new Point(touchPos.x, touchPos.y));
+                break;
+            case OperatorStatus.MoveEntity:
+                if (this.previousTouch) {
+                    this.MoveEntity({x: touchPos.x - this.previousTouch.x, y: touchPos.y - this.previousTouch.y});
+                    this.previousTouch = touchPos;
+                }
+                break;
+            case OperatorStatus.ChangeEntitySizeLt:
+                this.resizeEntity({x: touchPos.x, y: touchPos.y});
+                break;
+            case OperatorStatus.ChangeEntitySizeLb:
+                this.resizeEntity({x: touchPos.x, y: touchPos.y});
+                break;
+            case OperatorStatus.ChangeEntitySizeLm:
+                this.resizeEntity({x: touchPos.x, y: touchPos.y});
+                break;
+            case OperatorStatus.ChangeEntitySizeMb:
+                this.resizeEntity({x: touchPos.x, y: touchPos.y});
+                break;
+            case OperatorStatus.ChangeEntitySizeRb:
+                this.resizeEntity({x: touchPos.x, y: touchPos.y});
+                break;
+            case OperatorStatus.ChangeEntitySizeRm:
+                this.resizeEntity({x: touchPos.x, y: touchPos.y});
+                break;
+            case OperatorStatus.ChangeEntitySizeRt:
+                this.resizeEntity({x: touchPos.x, y: touchPos.y});
+                break;
+            case OperatorStatus.ChangeEntitySizeMt:
+                this.resizeEntity({x: touchPos.x, y: touchPos.y});
+                break;
+            case OperatorStatus.RotateEntity:
+                this.rotateEntity({x: touchPos.x, y: touchPos.y});
+                break;
+            default:
+                break;
+        }
+    }
+
+    private onTouchEnd = (event: TouchEvent) => {
+        const touchPos = getTouchPos(this.canvas, event);
+        if (this.operator === OperatorStatus.BoxSelect && this.dynamicRect) {
+            for (let i = 0; i < this.visibleEntities.length; i++) {
+                const ent = this.visibleEntities[i];
+                const boundD = ent.bound;
+                const mouseRect = new Rectangle(GraphicsAssist.mid(this.dynamicRect.lt, this.dynamicRect.rd), this.dynamicRect.rd.x - this.dynamicRect.lt.x,
+                    this.dynamicRect.rd.y - this.dynamicRect.lt.y);
+                if (Rectangle.intersection(mouseRect, boundD)) {
+                    ent.isActive = true;
+                }
+            }
+        }
+
+        // 自定义控件mouseup事件
+        if (this.operator === OperatorStatus.ControlClick) {
+            const isMouseInControlBound = (ctrBoundD: Rectangle) => {
+                const mousePoint = new Point(touchPos.x, touchPos.y);
+                if (GraphicsAssist.isPointInRectangle(mousePoint, ctrBoundD)) {
+                    return true;
+                }
+                return false;
+            }
+
+            const activeEntities = this.getActiveEntities();
+            if (activeEntities.length > 0) {
+                const ent = activeEntities[0];
+                const ctr = ent.controls.find((control) => isMouseInControlBound(control.bound()));
+                ctr?.touchEnd(event);
+            }
+        }
+
+        // 设置activeEntsCollection
+        const activeEnts = this.getActiveEntities();
+        if (activeEnts.length > 1) {
+            this.activeCollection = new EntityCollection(activeEnts);
+        } else {
+            this.activeCollection = undefined;
+        }
+
+        this.dragging = false;
+        this.previousTouch = undefined;
+        this.dynamicRect = undefined;
+        this.redraw();
+    }
+}
+export {TouchOperator, MouseOperator};

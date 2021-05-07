@@ -99,6 +99,15 @@ abstract class Control {
     public mouseUpHandler: (event: MouseEvent) => void;
 
     /**
+     * 触摸事件
+     */
+    public touchStart: (event: TouchEvent) => void;
+    /**
+     * 触摸事件
+     */
+    public touchEnd: (event: TouchEvent) => void;
+
+    /**
      * 控件的左上角坐标
      */
     protected get leftTop() {
@@ -111,6 +120,8 @@ abstract class Control {
         this.offsetY = offsetY;
         this.mouseDownHandler = () => {};
         this.mouseUpHandler = () => {};
+        this.touchStart = () => {};
+        this.touchEnd = () => {};
     }
 
     /**
@@ -215,7 +226,7 @@ class TextControl extends Control {
     public draw(ctx: CanvasRenderingContext2D): void {
         throw new Error("Method not implemented.");
     }
-    
+
     public bound(): Rectangle {
         throw new Error("Method not implemented.");
     }

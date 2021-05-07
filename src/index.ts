@@ -1,5 +1,5 @@
 import Entity from "./entity";
-import MiracleMouseControl from "./mouse";
+import {MouseOperator, TouchOperator} from "./operatorController";
 import * as MiracleEntity from "./entity";
 import * as MiracleGraphic from "./graphic";
 import * as MiracleControl from "./control";
@@ -24,6 +24,9 @@ export class Miracle {
     public set limitInCanvas(value: boolean) {
         if (this.mouseControl) {
             this.mouseControl.limitInCanvas = value;
+        }
+        if (this.touchControl) {
+            this.touchControl.limitInCanvas = value;
         }
     }
     /**
@@ -66,9 +69,16 @@ export class Miracle {
     public set rotateLocked(value: boolean) {
         this.entities.forEach((ent) => ent.rotateLocked = value);
     }
-
-    private mouseControl?: MiracleMouseControl;
-    constructor(canvas: HTMLCanvasElement, entities = []) {
+    private mouseControl?: MouseOperator;
+    private touchControl?: TouchOperator;
+    /**
+     * 创建一个画布增强器
+     * @param canvas 目标画布
+     * @param entities 添加的entity
+     * @param enableMouse 支持鼠标操作
+     * @param enableTouch 支持触摸操作
+     */
+    constructor(canvas: HTMLCanvasElement, entities = [], enableMouse = true, enableTouch = false) {
         this.entities = entities;
         this.low_canvas = canvas;
         const parentElement = canvas.parentElement;
@@ -103,7 +113,12 @@ export class Miracle {
             canvasContainer.appendChild(this.low_canvas);
             canvasContainer.appendChild(this.up_canvas);
             parentElement.appendChild(canvasContainer);
-            this.mouseControl = new MiracleMouseControl(this.entities, this.up_canvas);
+            if (enableMouse) {
+                this.mouseControl = new MouseOperator(this.entities, this.up_canvas);
+            }
+            if (enableTouch) {
+                this.touchControl = new TouchOperator(this.entities, this.up_canvas);
+            }
         }
     }
 
