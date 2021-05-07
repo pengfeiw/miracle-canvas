@@ -29,6 +29,17 @@ export class Point {
         this.x += vector.x;
         this.y += vector.y;
     }
+
+    /**
+     * 矩阵变换
+     * @param matrix3D 长度为9的数组表示三维矩阵
+     */
+    public transform(matrix3D: number[]) {
+        const x = this.x * matrix3D[0] + this.y * matrix3D[3] + matrix3D[6];
+        const y = this.x * matrix3D[1] + this.y * matrix3D[4] + matrix3D[7];
+        this.x = x;
+        this.y = y;
+    }
 }
 export class Vector {
     public x: number;
@@ -101,7 +112,7 @@ export class Rectangle {
      * 左上角点
      */
     public get lt() {
-        const lt_normal  = new Point(this.location.x - this.width * 0.5, this.location.y - this.height * 0.5);
+        const lt_normal = new Point(this.location.x - this.width * 0.5, this.location.y - this.height * 0.5);
         return GraphicsAssist.rotatePoint(this.location, lt_normal, this.angle);
     }
 
@@ -186,10 +197,11 @@ export class Rectangle {
      * 判断两个矩形是否相交
      */
     public static intersection(rect1: Rectangle, rect2: Rectangle) {
-        if (rect1.height === 0 || rect1.width === 0 || rect2.height === 0 || rect1.width ===0) {
+        if (rect1.height === 0 || rect1.width === 0 || rect2.height === 0 || rect1.width === 0) {
             // 非矩形的情况
             return false;
         }
+        // 判断其中一个矩形顶点在另一个矩形区域中的情况
         const isLtInRect = GraphicsAssist.isPointInRectangle(rect1.lt, rect2);
         const isLdInRect = GraphicsAssist.isPointInRectangle(rect1.ld, rect2);
         const isRdInRect = GraphicsAssist.isPointInRectangle(rect1.rd, rect2);
@@ -199,7 +211,17 @@ export class Rectangle {
         const isLdInRect2 = GraphicsAssist.isPointInRectangle(rect2.ld, rect1);
         const isRdInRect2 = GraphicsAssist.isPointInRectangle(rect2.rd, rect1);
         const isRtInRect2 = GraphicsAssist.isPointInRectangle(rect2.rt, rect1);
-        return isLtInRect || isLdInRect || isRdInRect || isRtInRect || isLtInRect2 || isLdInRect2 || isRdInRect2 || isRtInRect2;
+        if (isLtInRect || isLdInRect || isRdInRect || isRtInRect || isLtInRect2 || isLdInRect2 || isRdInRect2 || isRtInRect2) {
+            return true;
+        }
+
+        // 判断矩形顶点不在另一个矩形区域中的情况: 判断两个矩形对角线是否相交
+        const intersect = GraphicsAssist.isLineIntersection(rect1.lt, rect1.rd, rect2.lt, rect2.rd);
+        if (intersect) {
+            return true;
+        }
+
+        return false;
     };
 }
 
@@ -284,7 +306,7 @@ export namespace GraphicsAssist {
      */
     export const rotatePoint = (origin: Point, point: Point, anticlockwiseAngle: number) => {
         const p1 = new Point(point.x - origin.x, point.y - origin.y);
-        
+
         const p1_polar = cartesianToPolar(p1);
         const p1_polar_rotate: PolarCoord = {
             length: p1_polar.length,
@@ -305,9 +327,93 @@ export namespace GraphicsAssist {
             angle: angle,
             length: 1
         };
-        
+
         const point: Point = polarToCartesian(polar);
 
         return new Vector(point.x, point.y);
     }
+
+    /**
+     * 判断两条线段是否相交
+     * @param p1 线段一顶点1
+     * @param p2 线段一顶点2
+     * @param q1 线段二顶点1
+     * @param q2 线段二顶点2
+     */
+    export const isLineIntersection = (p1: Point, p2: Point, q1: Point, q2: Point) => {
+
+        // 算法参考stackoverflow: https://stackoverflow.com/a/565282/10069746
+        const p = {
+            x: p1.x,
+            y: p1.y
+        };
+        const q = {
+            x: q1.x,
+            y: q1.y
+        };
+        const r = {
+            x: p2.x - p1.x,
+            y: p2.y - p1.y
+        };
+        
+        const s = {
+            x: q2.x - q1.x,
+            y: q2.y - q1.y
+        };
+
+        
+        // ===========1. r x s=============
+        const rxs = r.x * s.y - s.x * r.y;
+
+        // ===========2. u================
+        // q - p
+        const q_p = {
+            x: q.x - p.x,
+            y: q.y - p.y
+        };
+        // (q - p) x r
+        const p_qxr = q_p.x * r.y - r.x * q_p.y;
+        // u = (q - p) x r / (r x s)
+        const u = p_qxr / rxs;
+        
+        // ===========3. t================
+        // (q - p) x s
+        const q_pxs = q_p.x * s.y - s.x * q_p.y;
+        // t = (q - p) x s / (r x s)
+        const t = q_pxs / rxs;
+
+        if (rxs !== 0 && u >= 0 && u <= 1 && t >= 0 && t <= 1) {
+            return true;
+        }
+
+        return false;
+    };
+
+    /**
+     * 多个三维方阵(3 x 3的矩阵)相乘
+     * @param matrix3Ds 多个三维方阵
+     */
+    export const matrixMulti = (...matrix3Ds: number[][]) => {
+        if (matrix3Ds.length === 0) {
+            throw new Error("参数不能为空");
+        }
+        const matrix = [...matrix3Ds[0]];
+
+        for (let i = 1; i < matrix3Ds.length; i++) {
+            const temMatrix = [...matrix];
+            matrix[0] = temMatrix[0] * matrix3Ds[i][0] + temMatrix[1] * matrix3Ds[i][3] + temMatrix[2] * matrix3Ds[i][6];
+            matrix[1] = temMatrix[0] * matrix3Ds[i][1] + temMatrix[1] * matrix3Ds[i][4] + temMatrix[2] * matrix3Ds[i][7];
+            matrix[2] = temMatrix[0] * matrix3Ds[i][2] + temMatrix[1] * matrix3Ds[i][5] + temMatrix[2] * matrix3Ds[i][8];
+
+            matrix[3] = temMatrix[3] * matrix3Ds[i][0] + temMatrix[4] * matrix3Ds[i][3] + temMatrix[5] * matrix3Ds[i][6];
+            matrix[4] = temMatrix[3] * matrix3Ds[i][1] + temMatrix[4] * matrix3Ds[i][4] + temMatrix[5] * matrix3Ds[i][7];
+            matrix[5] = temMatrix[3] * matrix3Ds[i][2] + temMatrix[4] * matrix3Ds[i][5] + temMatrix[5] * matrix3Ds[i][8];
+
+            matrix[6] = temMatrix[6] * matrix3Ds[i][0] + temMatrix[7] * matrix3Ds[i][3] + temMatrix[8] * matrix3Ds[i][6];
+            matrix[7] = temMatrix[6] * matrix3Ds[i][1] + temMatrix[7] * matrix3Ds[i][4] + temMatrix[8] * matrix3Ds[i][7];
+            matrix[8] = temMatrix[6] * matrix3Ds[i][2] + temMatrix[7] * matrix3Ds[i][5] + temMatrix[8] * matrix3Ds[i][8];
+        }
+
+        return matrix;
+    };
 }

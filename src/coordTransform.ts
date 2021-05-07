@@ -1,4 +1,4 @@
-import {GraphicsAssist, Point, Vector, PolarCoord} from "./graphic";
+import {GraphicsAssist, Point, Vector} from "./graphic";
 
 export default class CoordTransform {
     private _worldToDevice_Len_X: number; // x方向：这里叫x方向其实是不准确的，应该是主方向，在角度为0的时候为x方向。
@@ -56,32 +56,35 @@ export default class CoordTransform {
      * @param zoomScale 缩放比例
      */
     public zoom = (deviceZoomOrigin: Point, zoomScale: number) => {
-        // 因为引入了角度，所以如果要改变x（主方向）和y（副方向）方向，需要将deviceZoomOrigin先恢复到angle为0的点
-        const newOrigin = GraphicsAssist.rotatePoint(this.basePoint_world, deviceZoomOrigin, -this.anticlockwiseAngle);
         this._worldToDevice_Len_X = this._worldToDevice_Len_X * 1 / zoomScale;
         this._worldToDevice_Len_Y = this._worldToDevice_Len_Y * 1 / zoomScale;
-
-        let dx = this.basePoint_world.x - newOrigin.x;
-        dx *= zoomScale;
-
-        let dy = this.basePoint_world.y - newOrigin.y;
-        dy *= zoomScale;
-
-        // 主方向长度增加了dx长度，即basePoint_world向主方向平移了dx长度
-        const pointPolar: PolarCoord = {
-            length: dx,
-            angle: -this.anticlockwiseAngle
-        };
-        const point = GraphicsAssist.polarToCartesian(pointPolar);
-
-        // 副方向长度增加了dy长度，即basePoint_world向副方向平移了dx长度
-        const pointPolar2: PolarCoord = {
-            length: dy,
-            angle: -this.anticlockwiseAngle + Math.PI * 0.5
-        };
-        const point2 = GraphicsAssist.polarToCartesian(pointPolar2);
-
-        this.basePoint_world = new Point(deviceZoomOrigin.x + point.x + point2.x, deviceZoomOrigin.y + point.y + point2.y);
+        const matrix1 = [
+            1, 0, 0,
+            0, 1, 0,
+            -deviceZoomOrigin.x, -deviceZoomOrigin.y, 1
+        ];
+        const matrix2 = [
+            Math.cos(this.anticlockwiseAngle), Math.sin(this.anticlockwiseAngle), 0,
+            -Math.sin(this.anticlockwiseAngle), Math.cos(this.anticlockwiseAngle), 0,
+            0, 0, 1
+        ];
+        const matrix3 = [
+            zoomScale, 0, 0,
+            0, zoomScale, 0,
+            0, 0, 1
+        ];
+        const matrix4 = [
+            Math.cos(-this.anticlockwiseAngle), Math.sin(-this.anticlockwiseAngle), 0,
+            -Math.sin(-this.anticlockwiseAngle), Math.cos(-this.anticlockwiseAngle), 0,
+            0, 0, 1
+        ];
+        const matrix5 = [
+            1, 0, 0,
+            0, 1, 0,
+            deviceZoomOrigin.x, deviceZoomOrigin.y, 1
+        ];
+        const matrix = GraphicsAssist.matrixMulti(matrix1, matrix2, matrix3, matrix4, matrix5);
+        this.basePoint_world.transform(matrix);
     };
 
     /**
@@ -90,23 +93,38 @@ export default class CoordTransform {
      * @param zoomScale 缩放比例
      */
     public zoomX = (deviceZoomOrigin: Point, zoomScale: number) => {
-        // 因为引入了角度，所以如果要改变x（主方向）和y（副方向）方向，需要将deviceZoomOrigin先恢复到angle为0的点
-        const newOrigin = GraphicsAssist.rotatePoint(this.basePoint_world, deviceZoomOrigin, -this.anticlockwiseAngle);
-
+        //  主要目标是改变中心点位置（basePoint_world）和世界坐标系长度与设备坐标系长度的比值（_worldToDevice_Len_X）
+        //  因为该坐标转换存在一个旋转角度，所以我们必须先将角度旋转至水平，然后将缩放中心点平移至原点，再进行缩放，最后按照顺序恢复旋转角度和位置。
         this._worldToDevice_Len_X = this._worldToDevice_Len_X * 1 / zoomScale;
 
-        let dx = this.basePoint_world.x - newOrigin.x;
-        dx *= zoomScale;
+        const matrix1 = [
+            1, 0, 0,
+            0, 1, 0,
+            -deviceZoomOrigin.x, -deviceZoomOrigin.y, 1
+        ];
+        const matrix2 = [
+            Math.cos(this.anticlockwiseAngle), Math.sin(this.anticlockwiseAngle), 0,
+            -Math.sin(this.anticlockwiseAngle), Math.cos(this.anticlockwiseAngle), 0,
+            0, 0, 1
+        ];
+        const matrix3 = [
+            zoomScale, 0, 0,
+            0, 1, 0,
+            0, 0, 1
+        ];
+        const matrix4 = [
+            Math.cos(-this.anticlockwiseAngle), Math.sin(-this.anticlockwiseAngle), 0,
+            -Math.sin(-this.anticlockwiseAngle), Math.cos(-this.anticlockwiseAngle), 0,
+            0, 0, 1
+        ];
+        const matrix5 = [
+            1, 0, 0,
+            0, 1, 0,
+            deviceZoomOrigin.x, deviceZoomOrigin.y, 1
+        ];
 
-        // 主方向长度增加了dx长度，即basePoint_world向主方向平移了dx长度
-        const pointPolar: PolarCoord = {
-            length: dx,
-            angle: -this.anticlockwiseAngle
-        };
-
-        const point = GraphicsAssist.polarToCartesian(pointPolar);
-
-        this.basePoint_world = new Point(deviceZoomOrigin.x + point.x, deviceZoomOrigin.y + point.y);
+        const matrix = GraphicsAssist.matrixMulti(matrix1, matrix2, matrix3, matrix4, matrix5);
+        this.basePoint_world.transform(matrix);
     }
 
     /**
@@ -115,23 +133,36 @@ export default class CoordTransform {
      * @param zoomScale 缩放比例
      */
     public zoomY = (deviceZoomOrigin: Point, zoomScale: number) => {
-        // 因为引入了角度，所以如果要改变x（主方向）和y（副方向）方向，需要将deviceZoomOrigin先恢复到angle为0的点
-        const newOrigin = GraphicsAssist.rotatePoint(this.basePoint_world, deviceZoomOrigin, -this.anticlockwiseAngle);
-
+        //  主要目标是改变中心点位置（basePoint_world）和世界坐标系长度与设备坐标系长度的比值（_worldToDevice_Len_X）
+        //  因为该坐标转换存在一个旋转角度，所以我们必须先将角度旋转至水平，然后将缩放中心点平移至原点，再进行缩放，最后按照顺序恢复旋转角度和位置。
         this._worldToDevice_Len_Y = this._worldToDevice_Len_Y * 1 / zoomScale;
-
-        // 更改基点位置
-        let dy = this.basePoint_world.y - newOrigin.y;
-        dy *= zoomScale;
-
-        // 副方向长度增加了dy长度，即basePoint_world向副方向平移了dx长度
-        const pointPolar: PolarCoord = {
-            length: dy,
-            angle: -this.anticlockwiseAngle + Math.PI * 0.5
-        };
-        const point = GraphicsAssist.polarToCartesian(pointPolar);
-
-        this.basePoint_world = new Point(deviceZoomOrigin.x + point.x, deviceZoomOrigin.y + point.y);
+        const matrix1 = [
+            1, 0, 0,
+            0, 1, 0,
+            -deviceZoomOrigin.x, -deviceZoomOrigin.y, 1
+        ];
+        const matrix2 = [
+            Math.cos(this.anticlockwiseAngle), Math.sin(this.anticlockwiseAngle), 0,
+            -Math.sin(this.anticlockwiseAngle), Math.cos(this.anticlockwiseAngle), 0,
+            0, 0, 1
+        ];
+        const matrix3 = [
+            1, 0, 0,
+            0, zoomScale, 0,
+            0, 0, 1
+        ];
+        const matrix4 = [
+            Math.cos(-this.anticlockwiseAngle), Math.sin(-this.anticlockwiseAngle), 0,
+            -Math.sin(-this.anticlockwiseAngle), Math.cos(-this.anticlockwiseAngle), 0,
+            0, 0, 1
+        ];
+        const matrix5 = [
+            1, 0, 0,
+            0, 1, 0,
+            deviceZoomOrigin.x, deviceZoomOrigin.y, 1
+        ];
+        const matrix = GraphicsAssist.matrixMulti(matrix1, matrix2, matrix3, matrix4, matrix5);
+        this.basePoint_world.transform(matrix);
     }
 
     public rotateAnticlockwise = (angle: number) => {
