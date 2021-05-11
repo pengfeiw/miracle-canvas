@@ -431,6 +431,7 @@ export class Image extends Entity {
             image = new window.Image(size.width, size.height);
         }
         image.src = src;
+        image.crossOrigin = "*"; // set crossorigin
         this._image = image;
 
         this.setRotateOrigin(new Point(this.position.x + 0.5 * this.width, this.position.y + 0.5 * this.height));

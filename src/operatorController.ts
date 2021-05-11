@@ -339,7 +339,7 @@ class MouseOperator extends Operator {
             // 判断是否处于控制点内
             if (activeEntities.length > 0) {
                 let entity: Entity;
-                if (activeEntities.length > 1) {
+                if (activeEntities.length > 1 && this.activeCollection) {
                     entity = this.activeCollection!;
                 } else {
                     entity = activeEntities[0];
