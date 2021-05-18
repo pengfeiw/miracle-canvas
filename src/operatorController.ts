@@ -3,9 +3,13 @@ import {Rectangle, Point, GraphicsAssist, Vector} from "./graphic";
 
 export enum OperatorStatus {
     /**
+     * 无任何操作
+     */
+    None = 0,
+    /**
      * 框选操作
      */
-    BoxSelect = 1,
+    BoxSelect,
     /**
      * 点击自定义按钮
      */
@@ -49,7 +53,7 @@ export enum OperatorStatus {
     /**
      * 改变entity大小，中上
      */
-    ChangeEntitySizeMt
+    ChangeEntitySizeMt,
 }
 
 const getTouchPos = (canvas: HTMLCanvasElement, event: TouchEvent): {x: number, y: number} => {
@@ -539,6 +543,9 @@ class MouseOperator extends Operator {
     }
 
     private onMouseMove = (event: MouseEvent) => {
+        if (this.operator > 0) {
+            event.preventDefault();
+        }
         if (this.dragging) {
             switch (this.operator) {
                 case OperatorStatus.BoxSelect:
@@ -631,6 +638,7 @@ class MouseOperator extends Operator {
  */
 class TouchOperator extends Operator {
     private previousTouch?: {x: number, y: number};
+    public disableBoxSelect = true; // 触屏操作默认禁用boxSelect操作
     public constructor(entities: Entity[], canvas: HTMLCanvasElement) {
         super(entities, canvas);
         this.initEvent();
@@ -643,7 +651,7 @@ class TouchOperator extends Operator {
     }
 
     private onTouchStart = (event: TouchEvent) => {
-        this.operator = OperatorStatus.BoxSelect;
+        this.operator = this.disableBoxSelect ? OperatorStatus.None : OperatorStatus.BoxSelect;
         this.dragging = true;
         const touchPos = getTouchPos(event?.target as HTMLCanvasElement, event);
         const touchPoint: Point = new Point(touchPos.x, touchPos.y);
@@ -785,6 +793,9 @@ class TouchOperator extends Operator {
 
     private onTouchMove = (event: TouchEvent) => {
         const touchPos = getTouchPos(event.target as HTMLCanvasElement, event);
+        if (this.operator > 0) {
+            event.preventDefault();
+        }
 
         switch (this.operator) {
             case OperatorStatus.BoxSelect:
@@ -842,11 +853,11 @@ class TouchOperator extends Operator {
             }
         }
 
-        // 自定义控件mouseup事件
+        // 自定义控件touchup事件
         if (this.operator === OperatorStatus.ControlClick) {
             const isMouseInControlBound = (ctrBoundD: Rectangle) => {
-                const mousePoint = new Point(touchPos.x, touchPos.y);
-                if (GraphicsAssist.isPointInRectangle(mousePoint, ctrBoundD)) {
+                const touchPoint = new Point(touchPos.x, touchPos.y);
+                if (GraphicsAssist.isPointInRectangle(touchPoint, ctrBoundD)) {
                     return true;
                 }
                 return false;

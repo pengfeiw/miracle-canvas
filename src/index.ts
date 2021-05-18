@@ -78,7 +78,7 @@ export class Miracle {
      * @param enableMouse 支持鼠标操作
      * @param enableTouch 支持触摸操作
      */
-    constructor(canvas: HTMLCanvasElement, entities = [], enableMouse = true, enableTouch = false) {
+    constructor(canvas: HTMLCanvasElement, entities: Entity[] = [], enableMouse = true, enableTouch = false) {
         this.entities = entities;
         this.low_canvas = canvas;
         const parentElement = canvas.parentElement;
