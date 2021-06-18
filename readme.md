@@ -16,7 +16,7 @@ npm install miracle-canvas
 ```
 with yarn:
 ```bash
-yarn add mriacle-canvas
+yarn add miracle-canvas
 ```
 with cdn:
 ```js
